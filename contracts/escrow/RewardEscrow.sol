@@ -4,16 +4,21 @@ pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
-contract RewardEscrow is Initializable, ReentrancyGuardUpgradeable {
+contract RewardEscrow is Initializable, OwnableUpgradeable, ReentrancyGuardUpgradeable {
 
     address payable internal topContributor;
     address internal ownerContract;
+    address internal operator;
 
     event RewardReceived(uint256 value);
+    event TopContributorSet(address topContributor);
+    event RewardSent(address topContributor, uint256 rewardValue);
 
     error TopContributorNotSet();
-    error RewardFailedToSend(address);
+    error RewardFailedToSend(address, uint256);
+    error UnAuthorizedOperator();
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -24,8 +29,18 @@ contract RewardEscrow is Initializable, ReentrancyGuardUpgradeable {
         emit RewardReceived(msg.value);
     }
 
-    function initialize(address _ownerContract) public payable initializer {
+    modifier onlyOperator() {
+        if (msg.sender != getOperator()) {
+            revert UnAuthorizedOperator();
+        }
+        _;
+    }
+
+    function initialize(address _ownerContract, address _operator) public payable initializer {
+        __Ownable_init(msg.sender);
+
         ownerContract = _ownerContract;
+        operator = _operator;
     }
 
     function sendReward() external nonReentrant {
@@ -33,17 +48,28 @@ contract RewardEscrow is Initializable, ReentrancyGuardUpgradeable {
             revert TopContributorNotSet();
         }
         // TODO: Check if topContributor implements the "receiveGroupMintReward"
-        (bool success, ) = topContributor.call{value: address(this).balance}("");
+        uint256 rewardValue = address(this).balance;
+        (bool success, ) = topContributor.call{value: rewardValue}("");
         if (!success) {
-            revert RewardFailedToSend(topContributor);
+            revert RewardFailedToSend(topContributor, rewardValue);
         }
+        emit RewardSent(topContributor, rewardValue);
     }
 
-    function setTopContributor(address payable _topContributor) external {
+    function setTopContributor(address payable _topContributor) external onlyOperator {
         topContributor = _topContributor;
+        emit TopContributorSet(topContributor);
     }
 
     function getTopContributor() public view returns (address) {
         return topContributor;
+    }
+
+    function getOwnerContract() public view returns (address) {
+        return ownerContract;
+    }
+
+    function getOperator() public view returns (address) {
+        return operator;
     }
 }

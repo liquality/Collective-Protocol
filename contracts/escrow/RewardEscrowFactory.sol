@@ -4,9 +4,10 @@ pragma solidity ^0.8.20;
 
 
 import "./RewardEscrow.sol";
+import {ITransparentProxy, TransparentProxy} from "./TransparentProxy.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-import {ITransparentUpgradeableProxy, TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import {ITransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
 
 contract RewardEscrowFactory is Initializable,OwnableUpgradeable {
@@ -50,17 +51,14 @@ contract RewardEscrowFactory is Initializable,OwnableUpgradeable {
         // Deploying escrow logic contract
         address implementation = address(new RewardEscrow());
 
-        // Deploying escrow ProxyAdmin
-        address proxyAdmin = address(new ProxyAdmin(address(this)));
-
         // Escrow logic contract initializer data
-        bytes4 initializeSignature = bytes4(keccak256("initialize(address)"));
-        bytes memory data = abi.encodeWithSelector(initializeSignature, _ownerContract);
+        bytes4 initializeSignature = bytes4(keccak256("initialize(address,address)"));
+        bytes memory data = abi.encodeWithSelector(initializeSignature, _ownerContract, owner());
 
-        // Deploying TransparentUpgradeableProxy
-        address escrowProxy = address(new TransparentUpgradeableProxy(
+        // Deploying Transparent proxy
+        address escrowProxy = address(new TransparentProxy(
             address(implementation),
-            proxyAdmin,
+            address(this),
             data
         ));
         (bool success, ) = payable(escrowProxy).call{value: msg.value}("");
@@ -70,7 +68,7 @@ contract RewardEscrowFactory is Initializable,OwnableUpgradeable {
 
         escrowProxies[_ownerContract] = escrowProxy;
         escrowImplementations[escrowProxy] = implementation;
-        proxyAdmins[escrowProxy] = proxyAdmin;
+        proxyAdmins[escrowProxy] = ITransparentProxy(escrowProxy).getProxyAdmin();
 
         emit EscrowDeployed(_ownerContract, escrowProxy);
         return escrowProxy;

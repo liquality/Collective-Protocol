@@ -13,10 +13,6 @@ async function main() {
   console.log(`.........RewardEscrowFactory deployed at ${escrowFactoryAddress} ......... \n`)
   console.log(`.........RewardEscrowFactory impl deployed at ${escrowFactoryImpl} ......... \n`)
   console.log(`.........RewardEscrowFactory proxy admin deployed at ${escrowFactoryProxyAdmin} ......... \n`)
-
-  //console.log("================ Initializing escroyFactory ================ ")
-  // let escrowFactoryAddress = "0x44765874ba7683B5a3bFC79aEB648e125Bd9D9F7"
-  // let escrowFactory = new ethers.Contract(escrowFactoryAddress, RewardEscrowFactory__factory.createInterface());
 }
 
 // We recommend this pattern to be able to use async/await everywhere

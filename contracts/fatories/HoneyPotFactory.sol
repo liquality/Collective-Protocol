@@ -3,14 +3,14 @@
 pragma solidity ^0.8.20;
 
 
-import "./RewardEscrow.sol";
-import {ITransparentProxy, TransparentProxy} from "./TransparentProxy.sol";
+import "../core/HoneyPot.sol";
+import {ITransparentProxy, TransparentProxy} from "../external/TransparentProxy.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {ITransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
 
-contract RewardEscrowFactory is Initializable,OwnableUpgradeable {
+contract HoneyPotFactory is Initializable, OwnableUpgradeable {
 
     error SendToEscrowFailed();
 
@@ -21,6 +21,7 @@ contract RewardEscrowFactory is Initializable,OwnableUpgradeable {
     mapping(address => address ) internal escrowProxies; //mint splitter address to sub escrow proxy
     mapping(address => address ) internal escrowImplementations; // Proxy to implementation address
     mapping(address => address ) internal proxyAdmins; // Proxy to proxy admin
+
     
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -49,7 +50,7 @@ contract RewardEscrowFactory is Initializable,OwnableUpgradeable {
 
     function createSubEscrow(address _ownerContract) internal returns (address) {
         // Deploying escrow logic contract
-        address implementation = address(new RewardEscrow());
+        address implementation = address(new HoneyPot());
 
         // Escrow logic contract initializer data
         bytes4 initializeSignature = bytes4(keccak256("initialize(address,address)"));
@@ -94,5 +95,5 @@ contract RewardEscrowFactory is Initializable,OwnableUpgradeable {
 
     function getEscrowProxyAdmin(address _escrow) public view returns(address) {
         return proxyAdmins[_escrow];
-    }                                                      
+    }                                            
 }

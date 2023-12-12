@@ -4,16 +4,15 @@ pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
-import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
-contract RewardEscrow is Initializable, OwnableUpgradeable, ReentrancyGuardUpgradeable {
+contract HoneyPotEscrow is Initializable, ReentrancyGuardUpgradeable {
 
-    address payable internal topContributor;
-    address internal ownerContract;
-    address internal operator;
+    address payable private topContributor;
+    address private operator;
 
     event RewardReceived(uint256 value);
     event TopContributorSet(address topContributor);
+    event OperatorSet(address operator);
     event RewardSent(address topContributor, uint256 rewardValue);
 
     error TopContributorNotSet();
@@ -36,11 +35,9 @@ contract RewardEscrow is Initializable, OwnableUpgradeable, ReentrancyGuardUpgra
         _;
     }
 
-    function initialize(address _ownerContract, address _operator) public payable initializer {
-        __Ownable_init(msg.sender);
-
-        ownerContract = _ownerContract;
+    function initialize(address _operator) public payable initializer {
         operator = _operator;
+        emit OperatorSet(_operator);
     }
 
     function sendReward() external nonReentrant {
@@ -60,13 +57,14 @@ contract RewardEscrow is Initializable, OwnableUpgradeable, ReentrancyGuardUpgra
         topContributor = _topContributor;
         emit TopContributorSet(topContributor);
     }
+    
+    function setOperator(address _operator) external onlyOperator {
+        operator = _operator;
+        emit OperatorSet(_operator);
+    }
 
     function getTopContributor() public view returns (address) {
         return topContributor;
-    }
-
-    function getOwnerContract() public view returns (address) {
-        return ownerContract;
     }
 
     function getOperator() public view returns (address) {

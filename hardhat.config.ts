@@ -7,8 +7,20 @@ import * as dotenv from 'dotenv';
 dotenv.config()
 
 const config: HardhatUserConfig = {
-  solidity: "0.8.20",
-  
+  solidity: {
+    settings: {
+      optimizer: {
+        enabled: true,
+        runs: 200,
+      }
+    },
+    compilers: [
+      {
+        version: "0.8.20",
+      },
+      {version: "0.8.12"},
+    ]
+  },
   networks: {
     localhost: {
       url: 'http://127.0.0.1:8545/',
@@ -17,13 +29,14 @@ const config: HardhatUserConfig = {
       url: process.env.MUMBAI_RPC,
       accounts: {
         mnemonic: process.env.MNEMONIC,
-      },
+      }
     },
     "optimismGoerli": {
       url:  process.env.OPTIMISM_GOERLI_RPC,//`https://opt-goerli.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
       accounts: {
         mnemonic: process.env.MNEMONIC,
-      }
+      },
+      chainId: 80001
     },
     "optimism": {
       url:  process.env.OPTIMISM_RPC,//`https://opt-goerli.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
@@ -48,10 +61,34 @@ const config: HardhatUserConfig = {
       accounts: {
         mnemonic: process.env.MNEMONIC,
       }
-    }
+    },
+    "arbitrumTestnet" : {
+      url: process.env.ARBITRUM_TESTNET_RPC,
+      accounts: {
+        mnemonic: process.env.MNEMONIC,
+      }
+    },
+    "arbitrum" : {
+      url: process.env.ARBITRUM_RPC,
+      accounts: {
+        mnemonic: process.env.MNEMONIC,
+      }
+    },
+    "sepolia" : {
+      url: process.env.SEPOLIA_RPC,
+      accounts: {
+        mnemonic: process.env.MNEMONIC,
+      },
+    },
   },  
   etherscan: {
-    apiKey: (process.env.DEFAULT_NETWORK?.includes("base"))? process.env.ETHERSCAN_BASE_KEY : process.env.ETHERSCAN_OPTIMISM_KEY,
+    apiKey: {
+      base: process.env.ETHERSCAN_BASE_KEY as string,
+      optimism: process.env.ETHERSCAN_OPTIMISM_KEY as string,
+      arbitrumOne : process.env.ETHERSCAN_ARBITRUM_KEY as string,
+      polygonMumbai: process.env.ETHERSCAN_MUMBAI_KEY as string,
+      sepolia: process.env.ETHERSCAN_SEPOLIA_KEY as string,
+    }
   },
 };
 

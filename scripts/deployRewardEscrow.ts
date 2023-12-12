@@ -3,7 +3,7 @@ import { ethers, upgrades } from "hardhat";
 async function main() {
 
   console.log(".........Deploying RewardEscrow ......... \n")
-  let operator = "0x587cE1A413d47dd1B9C8a54C949016c147F18D19"
+  let operator = process.env.OPERATOR
   let rewardContract = await ethers.getContractFactory("RewardEscrow");
   let escrow =  await upgrades.deployProxy(rewardContract, [operator]);
   await escrow.waitForDeployment();

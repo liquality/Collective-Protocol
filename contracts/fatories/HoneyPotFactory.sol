@@ -2,98 +2,51 @@
 
 pragma solidity ^0.8.20;
 
-
 import "../core/HoneyPot.sol";
-import {ITransparentProxy, TransparentProxy} from "../external/TransparentProxy.sol";
-import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-import {ITransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
-import "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
+import "@openzeppelin/contracts/utils/Create2.sol";
+import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
-contract HoneyPotFactory is Initializable, OwnableUpgradeable {
+contract HoneyPotFactory {
 
-    error SendToEscrowFailed();
+    event HoneyPotCreated(address indexed honeyPot, address indexed tokenContract, address indexed operator);
 
-    event FundReceipt(address indexed sender, address indexed recipient);
-    event EscrowDeployed(address indexed owner, address indexed escrow);
-    event EscrowUpgraded(address indexed oldImplementation, address indexed newImplementation);
+    HoneyPot public immutable honeyPotImplementation;
 
-    mapping(address => address ) internal escrowProxies; //mint splitter address to sub escrow proxy
-    mapping(address => address ) internal escrowImplementations; // Proxy to implementation address
-    mapping(address => address ) internal proxyAdmins; // Proxy to proxy admin
-
-    
-    /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
-        _disableInitializers();
+        honeyPotImplementation = new HoneyPot();
     }
 
-    function initialize() public payable initializer {
-        __Ownable_init(msg.sender);
-    }
+    /**
+     * create an account, and return its address.
+     * returns the address even if the account is already deployed.
+     */
+    function createHoneyPot(address _tokenContract, address _operator, uint256 _salt) public returns (address) {
+        address honeyPotAddr = getHoneyPot(_tokenContract, _operator, _salt);
+        uint codeSize = honeyPotAddr.code.length;
 
+        if (codeSize <= 0) {
+            HoneyPot honeyPot = HoneyPot(payable(new ERC1967Proxy{salt : bytes32(_salt)}(
+                address(honeyPotImplementation),
+                abi.encodeCall(HoneyPot.initialize, (_tokenContract, _operator))
+            )));
+            honeyPotAddr = address(honeyPot);
+            emit HoneyPotCreated(honeyPotAddr, _tokenContract, _operator);
 
-    receive() external payable {
-        // Check if sending address already has escrow created
-        address payable escrow = payable(escrowProxies[msg.sender]);
-        if (escrow == address(0)) {
-            escrow = payable(createSubEscrow(msg.sender));
-        } else {
-            // subEscrow exists, send funds to subEscrow
-            (bool success, ) = escrow.call{value: msg.value}("");
-            if (!success) {
-                revert SendToEscrowFailed();
-            }
         }
-        emit FundReceipt(msg.sender, escrow);
+        return honeyPotAddr;
     }
 
-    function createSubEscrow(address _ownerContract) internal returns (address) {
-        // Deploying escrow logic contract
-        address implementation = address(new HoneyPot());
-
-        // Escrow logic contract initializer data
-        bytes4 initializeSignature = bytes4(keccak256("initialize(address,address)"));
-        bytes memory data = abi.encodeWithSelector(initializeSignature, _ownerContract, owner());
-
-        // Deploying Transparent proxy
-        address escrowProxy = address(new TransparentProxy(
-            address(implementation),
-            address(this),
-            data
-        ));
-        (bool success, ) = payable(escrowProxy).call{value: msg.value}("");
-        if (!success) {
-            revert SendToEscrowFailed();
-        }
-
-        escrowProxies[_ownerContract] = escrowProxy;
-        escrowImplementations[escrowProxy] = implementation;
-        proxyAdmins[escrowProxy] = ITransparentProxy(escrowProxy).getProxyAdmin();
-
-        emit EscrowDeployed(_ownerContract, escrowProxy);
-        return escrowProxy;
+    /**
+     * calculate the counterfactual address of the collective as it would be returned by createCollective()
+     */
+    function getHoneyPot(address _tokenContract, address _operator, uint256 _salt) public view returns (address) {
+        return Create2.computeAddress(bytes32(_salt), keccak256(abi.encodePacked(
+                type(ERC1967Proxy).creationCode,
+                abi.encode(
+                address(honeyPotImplementation),
+                abi.encodeCall(HoneyPot.initialize, (_tokenContract, _operator))
+                )
+        )));
     }
 
-    function upgradeEscrowFor(address _ownerContract, address newImplementation, bytes memory data) external onlyOwner {
-        address escrowProxy = escrowProxies[_ownerContract];
-        address proxyAdminAddress = proxyAdmins[escrowProxy];
-        address oldImplementation = escrowImplementations[escrowProxy];
-
-        ProxyAdmin(proxyAdminAddress).upgradeAndCall(ITransparentUpgradeableProxy(escrowProxy), newImplementation, data);
-        escrowImplementations[escrowProxy] = newImplementation;
-        emit EscrowUpgraded(oldImplementation, newImplementation);
-    }
-
-    function getEscrow(address _ownerContract) public view returns (address) {
-        return escrowProxies[_ownerContract];
-    }
-
-    function getEscrowImplementation(address _escrow) public view returns(address) {
-        return escrowImplementations[_escrow];
-    }
-
-    function getEscrowProxyAdmin(address _escrow) public view returns(address) {
-        return proxyAdmins[_escrow];
-    }                                            
 }

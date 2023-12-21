@@ -139,7 +139,7 @@ contract NewCollective is ICollective, UUPSUpgradeable, Initializable {
             addressesToWhitelist[1] = _tokenContract;
             addressesToWhitelist[2] = _honeyPot;
             ICWallet(cWallet).whitelistTargets(addressesToWhitelist);
-            emit PoolAdded(poolAddress, _tokenContract, _honeyPot);
+            emit PoolAdded(poolAddress, _tokenContract, _honeyPot, getCaller());
         }
     }
 
@@ -152,9 +152,14 @@ contract NewCollective is ICollective, UUPSUpgradeable, Initializable {
         if (!success) {
             revert Collective__PoolRewardNotSent(poolAddress, _honeyPot, msg.value);
         }
-        Pool(poolAddress).pause();
+        // Pool(poolAddress).pause();
         emit RewardForwarded(pools[_honeyPot].id, _honeyPot, msg.value, pools[_honeyPot].tokenContract);
         return true;
+    }
+
+    function recordPoolMint(address _pool, address _participant, uint256 _tokenID, uint256 _quantity, uint256 _amountPaid)
+    external {
+        Pool(payable(_pool)).recordMint(_participant, _tokenID, _quantity, _amountPaid);
     }
 
     function renounceOperator() external {
@@ -177,10 +182,10 @@ contract NewCollective is ICollective, UUPSUpgradeable, Initializable {
 
     function _requireFromMembersOrWallet() internal view {
         if (msg.sender == cWallet && !members[getCaller()]) {
-            revert Collective__OnlyMemberOrWallet(msg.sender);
+            revert Collective__OnlyMember(msg.sender);
         }
         if (!members[msg.sender]) {
-            revert Collective__OnlyMemberOrWallet(msg.sender);
+            revert Collective__OnlyMember(msg.sender);
         }
     }
 

@@ -6,6 +6,9 @@ typechain
 typechain-types
 .openzeppelin/*
 .github/*
+*/.DS_Store
+**/.DS_Store
+.DS_Store
 
 # Hardhat files
 cache

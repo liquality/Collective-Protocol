@@ -27,7 +27,6 @@ contract CollectiveFactory {
      * This method returns an existing account address so that entryPoint.getSenderAddress() would work even after account creation
      */
     function createCollective(address _initiator, address _operator, uint256 _salt) public returns (address) {
-
         address collective = getCollective(_initiator, _operator, _salt);
         address cWallet = getCWallet(collective, _operator, _salt);
 
@@ -50,6 +49,7 @@ contract CollectiveFactory {
                 abi.encodeCall(CWallet.initialize, (collective, _operator))
             )));
         }
+
         emit CollectiveCreated(address(retC), address(retW));
         return address(retW);
     }

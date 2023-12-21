@@ -6,9 +6,7 @@ import {IPool} from "../interfaces/IPool.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-
-
-
+import "hardhat/console.sol";
 
 contract Pool is IPool, Pausable, ReentrancyGuard  {
 
@@ -21,9 +19,9 @@ contract Pool is IPool, Pausable, ReentrancyGuard  {
     mapping(address => Participant) public participantData;
     
     address[] public participants;
-    address public poolInitiator;
-    address public collective;
-    address public immutable tokenContract;
+    address immutable public  poolInitiator;
+    address immutable public  collective;
+    address immutable public  tokenContract;
 
     uint256 public poolReward;    // total reward amount to be distributed to pool participants
     uint128 public totalContributions;
@@ -71,7 +69,7 @@ contract Pool is IPool, Pausable, ReentrancyGuard  {
     // @inheritdoc IPool
     function recordMint(address _participant, uint256 _tokenID, uint256 _quantity, uint256 _amountPaid) 
     external onlyCollective whenNotPaused {
-
+        console.log("!!! came to recordMint");
         participantData[_participant].contribution += uint64(_quantity);
         totalContributions += uint128(_quantity);
 
@@ -81,10 +79,11 @@ contract Pool is IPool, Pausable, ReentrancyGuard  {
         }
 
         emit NewMint(_participant, _tokenID, _quantity, _amountPaid);
+        console.log("!!! done with recordMint");
     }
 
     // @inheritdoc IPool
-    function distributeReward() external onlyCollective {
+    function distributeReward() external {
         if (isDistributed || !isRewardReceived || poolReward == 0) {
             revert Pool__NoRewardToDistribute();
         }
@@ -115,11 +114,6 @@ contract Pool is IPool, Pausable, ReentrancyGuard  {
             revert Pool__FailedToSendReward(_participant, rewardAmount);
         }
         emit RewardWithdrawn(_participant, rewardAmount);
-    }
-
-    // @inheritdoc IPool
-    function setCollective(address newCollective) external onlyCollective {
-        collective = newCollective;
     }
 
     // withdraw all funds from the pool to collective, and destroy the pool

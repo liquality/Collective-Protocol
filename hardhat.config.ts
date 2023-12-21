@@ -2,6 +2,7 @@ import { HardhatUserConfig } from "hardhat/config";
 import "@nomicfoundation/hardhat-toolbox";
 import '@openzeppelin/hardhat-upgrades';
 import "@nomicfoundation/hardhat-verify";
+import "hardhat-tracer";
 import * as dotenv from 'dotenv';
 
 dotenv.config()
@@ -24,6 +25,11 @@ const config: HardhatUserConfig = {
   networks: {
     localhost: {
       url: 'http://127.0.0.1:8545/',
+    },
+    hardhat: {
+      forking: {
+        url: process.env.MUMBAI_RPC as string,
+      },
     },
     polygonMumbai: {
       url: process.env.MUMBAI_RPC,
@@ -80,6 +86,12 @@ const config: HardhatUserConfig = {
         mnemonic: process.env.MNEMONIC,
       },
     },
+    "goerli" : {
+      url: process.env.GOERLI_RPC,
+      accounts: {
+        mnemonic: process.env.MNEMONIC,
+      },
+    },
   },  
   etherscan: {
     apiKey: {
@@ -90,6 +102,15 @@ const config: HardhatUserConfig = {
       sepolia: process.env.ETHERSCAN_SEPOLIA_KEY as string,
     }
   },
+  tracer: {
+    tasks: ["deploy", "mycooltask"],
+  },
+  
 };
+
+// task('customTask', 'Description of your custom task').setAction(async (_, hre) => {
+//   // Your task logic here
+//   console.log('Running custom task');
+// });
 
 export default config;

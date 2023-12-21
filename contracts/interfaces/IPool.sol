@@ -41,12 +41,6 @@ interface IPool {
     /// @param _participant The address of the participant
     function withdrawReward(address _participant) external;
 
-    /// @notice Set collective address
-    /// @dev This function is called by the collective, to set the collective address
-    /// @param newCollective The address of the new collective
-    function setCollective(address newCollective) external;
-
-
     /* -----READ ONLY METHODS----- */
 
     /// @notice Get member count of pool

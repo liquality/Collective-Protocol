@@ -2,14 +2,20 @@
 
 pragma solidity ^0.8.20;
 
-import "../external/I0xSplit.sol";
+import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import "hardhat/console.sol";
 
+contract MockTokenContract is ERC721("MockTokenContract", "MTC") {
 
-contract MockTokenContract {
+    // function sendVal(address recipient) external payable {
+    //     (bool success, ) = recipient.call{value: msg.value}("");
+    //     require(success, "failed to send");
+    // }
 
-    function sendVal(address recipient) external payable {
-        (bool success, ) = recipient.call{value: msg.value}("");
-        require(success, "failed to send");
+    function mint(address recipient, uint256 tokenId) external payable {
+        console.log(" came to MockTokenContract.mint");
+        _mint(recipient, tokenId);
+        console.log(" minted");
     }
 
     // function forwardval(address splitter, address recipient, uint256 withdrawETH, ERC20[] calldata tokens) 

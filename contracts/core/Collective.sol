@@ -18,6 +18,8 @@ import "../interfaces/ICWallet.sol";
 import "../interfaces/ICollective.sol";
 import "../interfaces/IPool.sol";
 import "./Pool.sol";
+import "hardhat/console.sol";
+
 
 
 /**
@@ -80,6 +82,7 @@ contract Collective is ICollective, UUPSUpgradeable, Initializable {
     function setWallet(address theWallet) external {
         require(msg.sender == collectiveFactory, "Collective__setWallet: Not_Factory");
         cWallet = theWallet;
+        emit CWalletSet(theWallet);
     }
     
     function _authorizeUpgrade(address newImplementation) internal view override {
@@ -92,6 +95,10 @@ contract Collective is ICollective, UUPSUpgradeable, Initializable {
 
     // solhint-disable-next-line no-empty-blocks
     receive() external payable {}
+
+    fallback() external payable {
+        revert Collective__Fallback();
+    }
     
     function joinCollective(bytes calldata _inviteSig, bytes16 _inviteId) external {
         address _newMember = getCaller();
@@ -101,9 +108,9 @@ contract Collective is ICollective, UUPSUpgradeable, Initializable {
         }
         // Check if the signature is valid and signed by an existing member
         address signer = recoverSigner(_inviteSig, _inviteId);
-        // if (!members[signer]) {
-        //     revert Collective__NoValidInvite(signer, _inviteId);
-        // }
+        if (!members[signer]) {
+            revert Collective__NoValidInvite(signer, _inviteId);
+        }
         // Join the collective
         members[_newMember] = true;
         emit NewMember(_newMember);
@@ -123,23 +130,40 @@ contract Collective is ICollective, UUPSUpgradeable, Initializable {
     }
 
     function createPools(address[] calldata _tokenContracts, address[] calldata _honeyPots) external {
-        _requireFromMembersOrWallet();
+        address _caller = getCaller();
+        _requireFromMembers(_caller);
         if (_tokenContracts.length != _honeyPots.length) {
             revert Collective_MitMatchedLength(_tokenContracts.length, _honeyPots.length);
         } 
         for (uint i = 0; i < _tokenContracts.length; i++) {
             address _tokenContract = _tokenContracts[i];
             address _honeyPot = _honeyPots[i];
-
-            address poolAddress = address(new Pool(_tokenContract, getCaller()));
+            if (pools[_honeyPot].tokenContract == _tokenContract) {
+                revert Collective__PoolAlreadyAdded(_honeyPot);
+            } 
+            console.log("Gasleft before pool > ", gasleft());
+            Pool poolContract = new Pool(_tokenContract, _caller);
+            address poolAddress = address(poolContract);
+            console.log("Gasleft after pool > ", gasleft());
             pools[_honeyPot] = PoolData(poolAddress, _tokenContract);
             address[] memory addressesToWhitelist = new address[](3);
             addressesToWhitelist[0] = poolAddress;
             addressesToWhitelist[1] = _tokenContract;
             addressesToWhitelist[2] = _honeyPot;
             ICWallet(cWallet).whitelistTargets(addressesToWhitelist);
-            emit PoolAdded(poolAddress, _tokenContract, _honeyPot);
+            emit PoolAdded(poolAddress, _tokenContract, _honeyPot, _caller);
         }
+        console.log("!!! done with createPools");
+    }
+
+    function recordPoolMint(address _pool, address _participant, uint256 _tokenID, uint256 _quantity, uint256 _amountPaid) 
+    external {
+        if(msg.sender != cWallet) {
+            revert Collective__OnlyCWallet(msg.sender);
+        } 
+        console.log("!!! came to recordPoolMint");
+        Pool(payable(_pool)).recordMint(_participant, _tokenID, _quantity, _amountPaid);
+        console.log("!!! done with recordPoolMint");
     }
 
     function receivePoolReward(address _honeyPot) external payable returns (bool) {
@@ -151,7 +175,7 @@ contract Collective is ICollective, UUPSUpgradeable, Initializable {
         if (!success) {
             revert Collective__PoolRewardNotSent(poolAddress, _honeyPot, msg.value);
         }
-        Pool(poolAddress).pause();
+        // Pool(poolAddress).pause();
         emit RewardForwarded(pools[_honeyPot].id, _honeyPot, msg.value, pools[_honeyPot].tokenContract);
         return true;
     }
@@ -174,79 +198,49 @@ contract Collective is ICollective, UUPSUpgradeable, Initializable {
 
     /* ------------------------------ READ METHODS ---------------------------- */
 
-    function _requireFromMembersOrWallet() internal view {
-        if (msg.sender == cWallet && !members[getCaller()]) {
-            revert Collective__OnlyMemberOrWallet(msg.sender);
-        }
-        if (!members[msg.sender]) {
-            revert Collective__OnlyMemberOrWallet(msg.sender);
-        }
+    function _requireFromMembers(address caller) internal view {
+        if (!members[caller]) {
+         revert Collective__OnlyMember(caller);
+        } 
+        return;
     }
 
     function _requireFromInitiator() internal view {
         if (getCaller() != initiator) {
-            revert Collective__OnlyInitiator(msg.sender);
+            revert Collective__OnlyInitiator(getCaller() );
         }
+        return; 
     }
 
     function _requireFromAuthorizedOperator() internal view  {
-        if (operator != msg.sender) {
-            revert Collective__OnlyOperator(msg.sender);
+        if (operator != getCaller())  {
+            revert Collective__OnlyOperator(getCaller() );
         }
+        return;
     }
 
     function getCaller() internal view returns (address) {
         address caller;
         if (msg.sender == cWallet) {
-            bytes calldata data = msg.data;
-            require(data.length >= 20, "Data is too short");
-            // Extract the last 20 bytes from the data to decode the address
-            bytes calldata last20Bytes = data[data.length - 20:];
-            caller = abi.decode(last20Bytes, (address));
+            bytes memory addressByte = msg.data[msg.data.length - 20:] ; // get last 20 bytes of calldata
+            bytes memory addressBytes32 = new bytes(32);
+            for (uint i = 12; i < 32; i++) { // pad to 32 bytes
+                addressBytes32[i] = addressByte[i - 12];
+            }
+            (caller) = abi.decode(addressBytes32, (address));
         } else {
             caller = msg.sender;
+        }
+        if (caller == address(0)) {
+            revert Collective__OnlyMember(caller);
         }
         return caller;
     }
 
-    // function recoverSigner(bytes calldata _inviteSig, bytes16 _inviteId) internal pure returns (address) {
-    //     // Create a prefixed hash of the data (to mimic the behavior of web3.eth.sign)
-    //     bytes32 messageHash = keccak256(abi.encodePacked(_inviteId));
-    //     bytes32 ethSignedMessageHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", messageHash));
-
-    //     // Recover the signer address from the signature
-    //     (bytes32 r, bytes32 s, uint8 v) = splitSignature(_inviteSig);
-    //     address signer = ecrecover(messageHash, v, r, s); //getSigner(v,r,s,_inviteId);
-
-    //     // Compare the recovered address with the provided address
-    //     return signer;
-    // }
-
-    // function splitSignature(bytes memory sig) internal pure returns (bytes32 r, bytes32 s, uint8 v) {
-    //     require(sig.length == 65, "invalid signature length");
-
-    //     assembly {
-    //         // first 32 bytes, after the length prefix
-    //         r := mload(add(sig, 32))
-    //         // second 32 bytes
-    //         s := mload(add(sig, 64))
-    //         // final byte (first byte of the next 32 bytes)
-    //         v := byte(0, mload(add(sig, 96)))
-    //     }
-    // }
-
-    // function getSigner(uint8 v, bytes32 r, bytes32 s, bytes16 _inviteId) internal pure returns (address) {
-    //     // Create a hash of the data to be signed
-    //     bytes32 hash = keccak256(abi.encodePacked(_inviteId));
-    //     // bytes32 ethSignedHash = hash.toEthSignedMessageHash();
-    //     // Recover the signer from the signature
-    //     return ECDSA.recover(hash,v,r,s);
-    // }
-
     function recoverSigner(bytes calldata _inviteSig, bytes16 _inviteId) internal pure returns (address) {
         // Create a hash of the data to be signed
         bytes32 hash = keccak256(abi.encodePacked(_inviteId));
-        bytes32 ethSignedHash = hash.toEthSignedMessageHash();//keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", hash));
+        bytes32 ethSignedHash = hash.toEthSignedMessageHash();
         // Recover the signer from the signature
         return ethSignedHash.recover(_inviteSig);
     }

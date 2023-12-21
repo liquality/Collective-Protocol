@@ -14,6 +14,7 @@ import "../interfaces/ICWallet.sol";
 import "../interfaces/ICollective.sol";
 import "../extensions/AA/BaseAccount.sol";
 import "../extensions/AA/TokenCallbackHandler.sol";
+import "hardhat/console.sol";
 
 /**
   * minimal account.
@@ -31,8 +32,8 @@ contract CWallet is ICWallet, BaseAccount, TokenCallbackHandler, UUPSUpgradeable
     event TargetsBlacklisted(address[] indexed target);
     event OperatorRenounced(address indexed operator);
     event TargetsWhitelisted(address[] indexed target);
-    event RewardReceived(address indexed sender, uint256 amount);
-    event FundsWithdrawn(address indexed recipient, uint256 amount);
+    event RewardReceived(address indexed sender, uint256 indexed amount);
+    event FundsWithdrawn(address indexed recipient, uint256 indexed amount);
     event CollectiveWalletInitialized(IEntryPoint indexed entryPoint, address indexed collective);
 
 
@@ -42,12 +43,14 @@ contract CWallet is ICWallet, BaseAccount, TokenCallbackHandler, UUPSUpgradeable
     error CWallet__OnlyWhitelistedTargets(address target);
     error CWallet__FailedToReceiveReward(address sender, uint256 amount);
     error CWallet__FailedToWithdrawFunds(address recipient, uint256 amount);
+    error CWallet__NotEnoughBalance(address signer, uint256 balance, uint256 amount);
 
     /* ======================= STORAGE ====================== */
+    address private currentSigner; // Appended to the end of the calldata to collective
     address public collective;
     address public operator;
-    address private currentSigner; // Appended to the end of the calldata to collective
     mapping(address => bool) public whitelistedTargets;
+    mapping(address => uint256) public balance; // mapping of member address to balance
 
     IEntryPoint private immutable _entryPoint;
 
@@ -99,7 +102,7 @@ contract CWallet is ICWallet, BaseAccount, TokenCallbackHandler, UUPSUpgradeable
         _requireToWhitelisted(dest);
         if (dest == collective) {
             // add signer to the end of the calldata for calls to collective
-            bytes memory data = abi.encode(func, currentSigner);
+            bytes memory data = abi.encodePacked(func, currentSigner);
             _call(dest, value, data);
         } else {
             _call(dest, value, func);
@@ -112,6 +115,7 @@ contract CWallet is ICWallet, BaseAccount, TokenCallbackHandler, UUPSUpgradeable
      * @dev to reduce gas consumption for trivial case (no value), use a zero-length array to mean zero value
      */
     function executeBatch(address[] calldata dest, uint256[] calldata value, bytes[] calldata func) external {
+        console.log(" came to executeBatch");
         _requireFromEntryPoint();
         require(dest.length == func.length && (value.length == 0 || value.length == func.length), "wrong array lengths");
         if (value.length == 0) {
@@ -119,22 +123,30 @@ contract CWallet is ICWallet, BaseAccount, TokenCallbackHandler, UUPSUpgradeable
                 _requireToWhitelisted(dest[i]);
                 if (dest[i] == collective) {
                     // add signer to the end of the calldata for calls to collective
-                    bytes memory data = abi.encode(func[i], currentSigner);
+                    bytes memory data = abi.encodePacked(func[i], currentSigner);
+                    console.log(" came to executeBatch collective");
                     _call(dest[i], 0, data);
                 } else {
+                    console.log("came to executeBatch not collective", dest[i]);
                     _call(dest[i], 0, func[i]);
                 }
             }
         } else {
             for (uint256 i = 0; i < dest.length; i++) {
                 _requireToWhitelisted(dest[i]);
+                if (balance[currentSigner] < value[i]) {
+                    revert CWallet__NotEnoughBalance(currentSigner, balance[currentSigner], value[i]);
+                }
                 if (dest[i] == collective) {
                     // add signer to the end of the calldata for calls to collective
-                    bytes memory data = abi.encode(func[i], currentSigner);
+                    bytes memory data = abi.encodePacked(func[i], currentSigner);
+                    console.log(" came to executeBatch collective");
                     _call(dest[i], value[i], data);
                 } else {
+                    console.log(" came to executeBatch not collective > ", dest[i]);
                     _call(dest[i], value[i], func[i]);
                 }
+                balance[currentSigner] -= value[i];
             }
         }
         currentSigner = address(0);
@@ -143,6 +155,7 @@ contract CWallet is ICWallet, BaseAccount, TokenCallbackHandler, UUPSUpgradeable
     function _call(address target, uint256 value, bytes memory data) internal {
         (bool success, bytes memory result) = target.call{value : value}(data);
         if (!success) {
+                console.log(" failed to call >> ", target);
             assembly {
                 revert(add(result, 32), mload(result))
             }
@@ -188,6 +201,11 @@ contract CWallet is ICWallet, BaseAccount, TokenCallbackHandler, UUPSUpgradeable
             revert CWallet__FailedToWithdrawFunds(recipient, amount);
         }
         emit FundsWithdrawn(collective, amount);
+    }
+
+    // add deposit into
+    function depositTo(address account) external payable {
+        balance[account] += msg.value;
     }
 
     /*

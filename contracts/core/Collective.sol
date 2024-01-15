@@ -18,7 +18,6 @@ import "../interfaces/ICWallet.sol";
 import "../interfaces/ICollective.sol";
 import "../interfaces/IPool.sol";
 import "./Pool.sol";
-import "hardhat/console.sol";
 
 
 
@@ -138,13 +137,11 @@ contract Collective is ICollective, UUPSUpgradeable, Initializable {
         for (uint i = 0; i < _tokenContracts.length; i++) {
             address _tokenContract = _tokenContracts[i];
             address _honeyPot = _honeyPots[i];
-            if (pools[_honeyPot].tokenContract == _tokenContract) {
+            if (pools[_honeyPot].id != address(0)) {
                 revert Collective__PoolAlreadyAdded(_honeyPot);
             } 
-            console.log("Gasleft before pool > ", gasleft());
             Pool poolContract = new Pool(_tokenContract, _caller);
             address poolAddress = address(poolContract);
-            console.log("Gasleft after pool > ", gasleft());
             pools[_honeyPot] = PoolData(poolAddress, _tokenContract);
             address[] memory addressesToWhitelist = new address[](3);
             addressesToWhitelist[0] = poolAddress;
@@ -153,7 +150,6 @@ contract Collective is ICollective, UUPSUpgradeable, Initializable {
             ICWallet(cWallet).whitelistTargets(addressesToWhitelist);
             emit PoolAdded(poolAddress, _tokenContract, _honeyPot, _caller);
         }
-        console.log("!!! done with createPools");
     }
 
     function recordPoolMint(address _pool, address _participant, uint256 _tokenID, uint256 _quantity, uint256 _amountPaid) 
@@ -161,13 +157,11 @@ contract Collective is ICollective, UUPSUpgradeable, Initializable {
         if(msg.sender != cWallet) {
             revert Collective__OnlyCWallet(msg.sender);
         } 
-        console.log("!!! came to recordPoolMint");
         Pool(payable(_pool)).recordMint(_participant, _tokenID, _quantity, _amountPaid);
-        console.log("!!! done with recordPoolMint");
     }
 
     function receivePoolReward(address _honeyPot) external payable returns (bool) {
-        if (pools[_honeyPot].id != address(0)) {
+        if (pools[_honeyPot].id == address(0)) {
             revert Collective__PoolNotAdded(pools[_honeyPot].id);
         }
         address payable poolAddress = payable(pools[_honeyPot].id); 

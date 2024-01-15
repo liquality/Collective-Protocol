@@ -1,3 +1,5 @@
+
+
 // SPDX-License-Identifier: MIT
 
 pragma solidity ^0.8.20;
@@ -44,7 +46,6 @@ contract HoneyPotEscrow is Initializable, ReentrancyGuardUpgradeable {
         if(topContributor == address(0)) {
             revert TopContributorNotSet();
         }
-        // TODO: Check if topContributor implements the "receiveGroupMintReward"
         uint256 rewardValue = address(this).balance;
         (bool success, ) = topContributor.call{value: rewardValue}("");
         if (!success) {

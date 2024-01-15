@@ -6,7 +6,6 @@ import {IPool} from "../interfaces/IPool.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "hardhat/console.sol";
 
 contract Pool is IPool, Pausable, ReentrancyGuard  {
 
@@ -14,7 +13,8 @@ contract Pool is IPool, Pausable, ReentrancyGuard  {
     struct Participant {
         address id;
         uint64 contribution;
-        uint256 rewardAmount;
+        uint256 rewardedAmount;
+        uint256 rewardAvailable;
     }
     mapping(address => Participant) public participantData;
     
@@ -24,11 +24,11 @@ contract Pool is IPool, Pausable, ReentrancyGuard  {
     address immutable public  tokenContract;
 
     uint256 public poolReward;    // total reward amount to be distributed to pool participants
+    uint256 public rewardDistributed; 
     uint128 public totalContributions;
 
     bool public isDistributed;    // flag to indicate if reward has been distributed
     bool public isRewardReceived; // flag to indicate if pool reward has been received
-
 
 
 /* ======================= MODIFIERS ====================== */
@@ -69,7 +69,6 @@ contract Pool is IPool, Pausable, ReentrancyGuard  {
     // @inheritdoc IPool
     function recordMint(address _participant, uint256 _tokenID, uint256 _quantity, uint256 _amountPaid) 
     external onlyCollective whenNotPaused {
-        console.log("!!! came to recordMint");
         participantData[_participant].contribution += uint64(_quantity);
         totalContributions += uint128(_quantity);
 
@@ -79,7 +78,6 @@ contract Pool is IPool, Pausable, ReentrancyGuard  {
         }
 
         emit NewMint(_participant, _tokenID, _quantity, _amountPaid);
-        console.log("!!! done with recordMint");
     }
 
     // @inheritdoc IPool
@@ -87,16 +85,19 @@ contract Pool is IPool, Pausable, ReentrancyGuard  {
         if (isDistributed || !isRewardReceived || poolReward == 0) {
             revert Pool__NoRewardToDistribute();
         }
-        uint256 rewardAmount = poolReward;
+        uint256 poolRewardAmount = poolReward;
         for (uint256 i = 0; i < participants.length;) {
             Participant memory participant = participantData[participants[i]];
-            participantData[participants[i]].rewardAmount = 
-                (participant.contribution * rewardAmount) / totalContributions;
-            emit RewardDistributed(participant.id, participant.rewardAmount);
+            participantData[participants[i]].rewardedAmount = 
+                (participant.contribution * poolRewardAmount) / totalContributions;
+            participantData[participants[i]].rewardAvailable = 
+                participantData[participants[i]].rewardedAmount;
+            emit RewardDistributed(participant.id, participant.rewardedAmount);
             unchecked {
                 i++;
             }
         }
+        isDistributed = true;
     }
 
     // @inheritdoc IPool
@@ -104,16 +105,17 @@ contract Pool is IPool, Pausable, ReentrancyGuard  {
         if (participantData[_participant].id == address(0)) {
             revert Pool__ZeroParticipation(_participant);
         }
-        if (participantData[_participant].rewardAmount == 0) {
-            revert Pool__NotEnoughBalance(_participant, participantData[_participant].rewardAmount);
+        uint256 rewardAvailable = participantData[_participant].rewardAvailable;
+        if (rewardAvailable == 0) {
+            return;
         }
-        uint256 rewardAmount = participantData[_participant].rewardAmount;
-        participantData[_participant].rewardAmount = 0;
-        (bool success, ) = payable(_participant).call{value: rewardAmount}("");
+        participantData[_participant].rewardAvailable = 0;
+        (bool success, ) = payable(_participant).call{value: rewardAvailable}("");
         if (!success) {
-            revert Pool__FailedToSendReward(_participant, rewardAmount);
+            participantData[_participant].rewardAvailable = rewardAvailable;
         }
-        emit RewardWithdrawn(_participant, rewardAmount);
+        rewardDistributed += rewardAvailable;
+        emit RewardWithdrawn(_participant, rewardAvailable);
     }
 
     // withdraw all funds from the pool to collective, and destroy the pool
@@ -144,13 +146,18 @@ contract Pool is IPool, Pausable, ReentrancyGuard  {
 
     // @inheritdoc IPool
     function getPoolInfo() public view returns 
-    (address _tokenContract, uint256 _rewardPercent, uint256 _totalMints) {
-        return (tokenContract, poolReward, totalContributions);
+    (address _tokenContract, uint256 _reward, uint256 _rewardDistributed, uint256 _totalContributions, bool _isRewardReceived, bool _isDistributed) {
+        return (tokenContract, poolReward, rewardDistributed, totalContributions, isRewardReceived, isDistributed);
     }
 
     // @inheritdoc IPool
     function isPoolActive() public view returns (bool) {
         return paused();
+    }
+
+    // getParticipants
+    function getParticipants() public view returns (address[] memory) {
+        return participants;
     }
        
 }

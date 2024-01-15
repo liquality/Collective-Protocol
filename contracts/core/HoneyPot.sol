@@ -30,10 +30,8 @@ contract HoneyPot is Initializable, UUPSUpgradeable, OwnableUpgradeable, Reentra
         emit RewardReceived(msg.value);
     }
 
-    function initialize(address _ownerContract, address _operator) public payable initializer {
+    function initialize(address _operator) public payable initializer {
         __Ownable_init(msg.sender);
-
-        ownerContract = _ownerContract;
         operator = _operator;
     }
 
@@ -59,10 +57,6 @@ contract HoneyPot is Initializable, UUPSUpgradeable, OwnableUpgradeable, Reentra
     /* ------------------------------ READ METHODS ---------------------------- */
     function getTopContributor() public view returns (address) {
         return topContributor;
-    }
-
-    function getOwnerContract() public view returns (address) {
-        return ownerContract;
     }
 
     function getOperator() public view returns (address) {

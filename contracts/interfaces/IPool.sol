@@ -13,8 +13,6 @@ interface IPool {
     event WithrawnToCollective(address indexed to, address indexed token, uint256 indexed amount);
 
     /* ERRORS */
-    error Pool__FailedToSendReward(address _participant, uint256 _rewardAmount);
-    error Pool__NotEnoughBalance(address participant, uint256 available);
     error Pool__ZeroParticipation(address participant);
     error Pool__NoRewardToDistribute();
     error Pool__FailedToWithdrawFunds(address _recipient, address token, uint256 _amount);
@@ -51,7 +49,7 @@ interface IPool {
     /// @notice Get pool info
     /// @dev This function is called by the participant, to get the pool info
     /// @return _tokenContract token contract, reward percent, and total mints of the pool
-    function getPoolInfo() external view returns (address _tokenContract, uint256 _rewardPercent, uint256 _totalMints);
-
-
+    /// 
+    function getPoolInfo() external view returns
+    (address _tokenContract, uint256 _reward, uint256 _rewardDistributed, uint256 _totalContributions, bool _isRewardReceived, bool _isDistributed);
 }

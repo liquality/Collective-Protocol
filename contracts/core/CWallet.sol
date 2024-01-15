@@ -14,7 +14,7 @@ import "../interfaces/ICWallet.sol";
 import "../interfaces/ICollective.sol";
 import "../extensions/AA/BaseAccount.sol";
 import "../extensions/AA/TokenCallbackHandler.sol";
-import "hardhat/console.sol";
+import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 
 /**
   * minimal account.
@@ -22,7 +22,7 @@ import "hardhat/console.sol";
   *  has execute, eth handling methods
   *  has a single signer that can send requests through the entryPoint.
   */
-contract CWallet is ICWallet, BaseAccount, TokenCallbackHandler, UUPSUpgradeable, Initializable {
+contract CWallet is ICWallet, BaseAccount, TokenCallbackHandler, UUPSUpgradeable, Initializable, ReentrancyGuardUpgradeable {
 
     using MessageHashUtils for bytes32;
     using ECDSA for bytes32;
@@ -34,7 +34,7 @@ contract CWallet is ICWallet, BaseAccount, TokenCallbackHandler, UUPSUpgradeable
     event TargetsWhitelisted(address[] indexed target);
     event RewardReceived(address indexed sender, uint256 indexed amount);
     event FundsWithdrawn(address indexed recipient, uint256 indexed amount);
-    event CollectiveWalletInitialized(IEntryPoint indexed entryPoint, address indexed collective);
+    event WalletInitialized(IEntryPoint indexed entryPoint, address indexed collective, address indexed factory);
 
 
     /* ======================= Errors ====================== */
@@ -45,12 +45,13 @@ contract CWallet is ICWallet, BaseAccount, TokenCallbackHandler, UUPSUpgradeable
     error CWallet__FailedToWithdrawFunds(address recipient, uint256 amount);
     error CWallet__NotEnoughBalance(address signer, uint256 balance, uint256 amount);
 
+
     /* ======================= STORAGE ====================== */
     address private currentSigner; // Appended to the end of the calldata to collective
     address public collective;
     address public operator;
     mapping(address => bool) public whitelistedTargets;
-    mapping(address => uint256) public balance; // mapping of member address to balance
+    mapping(address => uint256) public balances; // mapping of member address to balance
 
     IEntryPoint private immutable _entryPoint;
 
@@ -70,15 +71,16 @@ contract CWallet is ICWallet, BaseAccount, TokenCallbackHandler, UUPSUpgradeable
      * a new implementation of CWallet must be deployed with the new EntryPoint address, then upgrading
       * the implementation by calling `upgradeTo()`
      */
-    function initialize(address theCollective, address theOperator) public virtual initializer {
-        _initialize(theCollective, theOperator);
+    function initialize(address theCollective, address theOperator, address theFactory) public virtual initializer {
+        _initialize(theCollective, theOperator, theFactory);
     }
 
-    function _initialize(address theCollective, address theOperator) internal virtual {
+    function _initialize(address theCollective, address theOperator, address theFactory) internal virtual {
         collective = theCollective;
         operator = theOperator;
         whitelistedTargets[theCollective] = true;
-        emit CollectiveWalletInitialized(_entryPoint, theCollective);
+        whitelistedTargets[theFactory] = true;
+        emit WalletInitialized(_entryPoint, theCollective, theFactory);
     }
 
 
@@ -100,12 +102,26 @@ contract CWallet is ICWallet, BaseAccount, TokenCallbackHandler, UUPSUpgradeable
     function execute(address dest, uint256 value, bytes calldata func) external {
         _requireFromEntryPoint();
         _requireToWhitelisted(dest);
-        if (dest == collective) {
-            // add signer to the end of the calldata for calls to collective
-            bytes memory data = abi.encodePacked(func, currentSigner);
-            _call(dest, value, data);
+        if (value > 0) {
+            if (balances[currentSigner] < value) {
+                revert CWallet__NotEnoughBalance(currentSigner, balances[currentSigner], value);
+            }
+            balances[currentSigner] -= value;
+            if (dest == collective) {
+                // add signer to the end of the calldata for calls to collective
+                bytes memory data = abi.encodePacked(func, currentSigner);
+                _call(dest, value, data);
+            } else {
+                _call(dest, value, func);
+            }
         } else {
-            _call(dest, value, func);
+            if (dest == collective) {
+                // add signer to the end of the calldata for calls to collective
+                bytes memory data = abi.encodePacked(func, currentSigner);
+                _call(dest, value, data);
+            } else {
+                _call(dest, value, func);
+            }
         }
         currentSigner = address(0);
     }
@@ -115,7 +131,6 @@ contract CWallet is ICWallet, BaseAccount, TokenCallbackHandler, UUPSUpgradeable
      * @dev to reduce gas consumption for trivial case (no value), use a zero-length array to mean zero value
      */
     function executeBatch(address[] calldata dest, uint256[] calldata value, bytes[] calldata func) external {
-        console.log(" came to executeBatch");
         _requireFromEntryPoint();
         require(dest.length == func.length && (value.length == 0 || value.length == func.length), "wrong array lengths");
         if (value.length == 0) {
@@ -124,29 +139,25 @@ contract CWallet is ICWallet, BaseAccount, TokenCallbackHandler, UUPSUpgradeable
                 if (dest[i] == collective) {
                     // add signer to the end of the calldata for calls to collective
                     bytes memory data = abi.encodePacked(func[i], currentSigner);
-                    console.log(" came to executeBatch collective");
                     _call(dest[i], 0, data);
                 } else {
-                    console.log("came to executeBatch not collective", dest[i]);
                     _call(dest[i], 0, func[i]);
                 }
             }
         } else {
             for (uint256 i = 0; i < dest.length; i++) {
                 _requireToWhitelisted(dest[i]);
-                if (balance[currentSigner] < value[i]) {
-                    revert CWallet__NotEnoughBalance(currentSigner, balance[currentSigner], value[i]);
+                if (balances[currentSigner] < value[i]) {
+                    revert CWallet__NotEnoughBalance(currentSigner, balances[currentSigner], value[i]);
                 }
+                balances[currentSigner] -= value[i];
                 if (dest[i] == collective) {
                     // add signer to the end of the calldata for calls to collective
                     bytes memory data = abi.encodePacked(func[i], currentSigner);
-                    console.log(" came to executeBatch collective");
                     _call(dest[i], value[i], data);
                 } else {
-                    console.log(" came to executeBatch not collective > ", dest[i]);
                     _call(dest[i], value[i], func[i]);
                 }
-                balance[currentSigner] -= value[i];
             }
         }
         currentSigner = address(0);
@@ -155,7 +166,6 @@ contract CWallet is ICWallet, BaseAccount, TokenCallbackHandler, UUPSUpgradeable
     function _call(address target, uint256 value, bytes memory data) internal {
         (bool success, bytes memory result) = target.call{value : value}(data);
         if (!success) {
-                console.log(" failed to call >> ", target);
             assembly {
                 revert(add(result, 32), mload(result))
             }
@@ -195,7 +205,7 @@ contract CWallet is ICWallet, BaseAccount, TokenCallbackHandler, UUPSUpgradeable
     }
 
     // withdraw from wallet
-    function withdrawNative(address payable recipient, uint256 amount) external onlyCollective {
+    function withdrawNative(address payable recipient, uint256 amount) external nonReentrant onlyCollective {
         (bool success, ) = recipient.call{value: amount}("");
         if (!success) {
             revert CWallet__FailedToWithdrawFunds(recipient, amount);
@@ -205,7 +215,7 @@ contract CWallet is ICWallet, BaseAccount, TokenCallbackHandler, UUPSUpgradeable
 
     // add deposit into
     function depositTo(address account) external payable {
-        balance[account] += msg.value;
+        balances[account] += msg.value;
     }
 
     /*
@@ -228,6 +238,17 @@ contract CWallet is ICWallet, BaseAccount, TokenCallbackHandler, UUPSUpgradeable
             whitelistedTargets[theTargets[i]] = false;
         }
         emit TargetsBlacklisted(theTargets);
+    }
+
+    // refund user balance
+    function refundBalance(address payable recipient) external nonReentrant {
+        uint256 recipientBal = balances[recipient];
+        balances[recipient] = 0;
+        (bool success, ) = recipient.call{value: recipientBal}("");
+        if (!success) {
+            revert CWallet__FailedToWithdrawFunds(recipient, recipientBal);
+        }
+        emit FundsWithdrawn(recipient, recipientBal);
     }
 
     /* ======================= READ METHODS ====================== */

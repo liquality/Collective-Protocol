@@ -3,9 +3,10 @@ import { ethers, upgrades } from "hardhat";
 import { Bytecode } from "hardhat/internal/hardhat-network/stack-traces/model";
 
 async function main() {
+    console.log("Deploying from account:", (await ethers.getSigners())[0].address);
     // deployEntryPoint()
     // await deployMockToken()
-    // await honeyPotFactory()
+    await honeyPotFactory()
     // fundWallet("0x9c7604F988af59b3299778cB984eAbf65198031A")
 
     // console.log(`.........Deploying Factories to ${(await ethers.provider.getNetwork()).name}......... \n`)
@@ -73,6 +74,7 @@ async function deployEntryPoint() : Promise<string> {
 
 // deploy mockTokenContract
 async function deployMockToken() {
+    
     let mockTokenFactory = await ethers.getContractFactory("MockTokenContract");
     let mockToken = await mockTokenFactory.deploy();
     await mockToken.waitForDeployment();

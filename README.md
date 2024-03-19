@@ -1,2 +1,2 @@
-# group-mint-contract
-Smart contract for the Group Mint project
+# Collective protocol 
+Smart contract for the collective protocol.

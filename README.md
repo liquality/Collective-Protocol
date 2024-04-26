@@ -1,6 +1,6 @@
 
 <div align="center">
-  <h1><u>Collective protocol</u></h1>
+  <h1 style="color: blue;" ><u> 🤼 Collective protocol</u></h1>
 </div>
 
 
@@ -8,8 +8,9 @@ Welcome to the Collective Protocol, this protocol provides a foundation for buil
 
 A collective is a new onchain primitive that allows informal groups of people to act together onchain through their own individual wallets. This maintains the flexibility of individual decision making, while still allowing the group to benefit from their collective buying power
 
+<br></br>
 
-## Features
+## Features 
 
 ### Dynamic Group Formation: 
 Create and manage fluid and flexible collective groups.
@@ -29,6 +30,9 @@ Facilitate decentralized decision-making within groups with minimal and flexible
 ### Integration Friendly: 
 Designed to be compatible with various DeFi and other blockchain platforms.
 
+
+<br></br>
+
 ## What Makes Collectives Different from DAOs
 
 ### Simplified Governance: 
@@ -40,6 +44,8 @@ Operate without the need for native tokens, removing barriers to entry and parti
 ### Focused on Practical Use: 
 Designed for real-world applications and streamlined group collaboration.
 
+
+<br></br>
 
 ## Use Cases
 
@@ -63,6 +69,7 @@ Influencer / follower pools
 ### group affiliate programs
 
 
+<br></br>
 
 ## Experimentations
 

@@ -1,7 +1,8 @@
 {
-  "name": "my-collectives",
+  "name": "collective-protocol",
   "version": "0.1.0",
-  "description": "A project on my collectives",
+  "description": "A protocol designed to facilitate decentralized group actions on chain.",
+  "author": "Liquality",
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^4.0.0",
     "@openzeppelin/hardhat-upgrades": "^3.0.0",

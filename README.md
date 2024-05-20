@@ -71,6 +71,45 @@ Influencer / follower pools
 
 <br></br>
 
+## Deployed Addresses:
+```
+  GOERLI {
+      collectiveFactory: '0xdA23889B4D12dE56b5C1E118Ae63F099b03a9086',
+      honeyPotFactory: '0xce3795B42857bE44cF8a384c8b50246FB7CaC691',
+    
+  },
+  POLYGON {
+      collectiveFactory: '0x9E4440EDFc8AebB30A5501F7a55EDe296BC2fb38',
+      honeyPotFactory: '0xF99E8F24BAD50CE6b0098205adcD6cD01e66AC4F',
+    
+  },
+  ARBITRUM {
+    collectiveFactory: '0xCfC03cA81380338703860238d0d6caD552232877',
+    honeyPotFactory: '0xc2b5189c3D5be89147780591A92a374c7d69D3D3',
+   
+  },
+  BASE {
+    collectiveFactory: '0xc2b5189c3D5be89147780591A92a374c7d69D3D3',
+    honeyPotFactory: '0x6fF619e8856F737d58cAf03871Cb3637C6Ed3308',
+   
+  },
+  OPTIMISM {
+    collectiveFactory: '0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789',
+    honeyPotFactory: '0x00F58322E0c66BFFb613DbC2D38b5275A0Fc7d2f',
+   
+  },
+  ZORA {
+    collectiveFactory: '0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789',
+    honeyPotFactory: '0x00F58322E0c66BFFb613DbC2D38b5275A0Fc7d2f',
+   
+  },
+  SEPOLIA {
+    collectiveFactory: '0x6f8892FBeAc884Bd3674Eeeafc7A059B70A75430',
+    honeyPotFactory: '0x00F58322E0c66BFFb613DbC2D38b5275A0Fc7d2f',
+  
+  }
+  ```
+
 ## Experimentations
 
 ### Clash of Channels

@@ -69,6 +69,23 @@ Influencer / follower pools
 ### group affiliate programs
 
 
+## Experimentations
+
+### Clash of Channels
+Warpcast's first-ever multiplayer channel game! Active casters from 16 Warpcast channels answer daily questions to win a channel vs. channel knock-out clash. This game utilizes collectives for group tracking and reward distribution.
+### How are channels able to act together to win?
+- Liquality’s Clash-of-Channels turns every Warpcast channel into a collective, allowing channel members to work together onchain towards a common goal (in this case, win $10k), while still keeping individual flexibility to participate on their own terms. Read more <a href="https://liqualityio.notion.site/Clash-of-Channels-3f5d8dd5351a48549e5fc2f95f46d903?pvs=4" target="_blank" >here </a>
+
+### Meme Amplifier Machine
+Using our learnings from Clash of Channels, where we got ~2,000 casters from 16 FC channels to play as a collective for their channel, we created a tool to align community members’ incentive to spread the meme of their community. 
+Here’s how it works:
+1.  Casters input a meme and choose their community on our meme mint frame generator 
+2. They cast their mint frame far and wide 
+3. Revenue generated from mints is split 50/50 between the caster and the community’s treasury 
+Read more about Meme amplifier <a href="meme-amplifier-machine.liquality.io" target="_blank" > here </a>
+
+
+
 <br></br>
 
 ## Deployed Addresses:
@@ -106,31 +123,47 @@ Influencer / follower pools
   SEPOLIA {
     collectiveFactory: '0x6f8892FBeAc884Bd3674Eeeafc7A059B70A75430',
     honeyPotFactory: '0x00F58322E0c66BFFb613DbC2D38b5275A0Fc7d2f',
-  
   }
   ```
 
-## Experimentations
-
-### Clash of Channels
-Warpcast's first-ever multiplayer channel game! Active casters from 16 Warpcast channels answer daily questions to win a channel vs. channel knock-out clash. This game utilizes collectives for group tracking and reward distribution.
-### How are channels able to act together to win?
-- Liquality’s Clash-of-Channels turns every Warpcast channel into a collective, allowing channel members to work together onchain towards a common goal (in this case, win $10k), while still keeping individual flexibility to participate on their own terms. Read more <a href="https://liqualityio.notion.site/Clash-of-Channels-3f5d8dd5351a48549e5fc2f95f46d903?pvs=4" target="_blank" >here </a>
-
-### Meme Amplifier Machine
-Using our learnings from Clash of Channels, where we got ~2,000 casters from 16 FC channels to play as a collective for their channel, we created a tool to align community members’ incentive to spread the meme of their community. 
-Here’s how it works:
-1.  Casters input a meme and choose their community on our meme mint frame generator 
-2. They cast their mint frame far and wide 
-3. Revenue generated from mints is split 50/50 between the caster and the community’s treasury 
-Read more about Meme amplifier <a href="meme-amplifier-machine.liquality.io" target="_blank" > here </a>
 
 # Contract Specification
+
+# Collective Factory
+The CollectiveFactory contract is responsible for creating and deploying Collective and CWallet (Collective Wallet) contracts using the ERC1967 proxy pattern and the Create2 openzeppelin library. It provides functions to create and calculate the addresses of Collective and CWallet contracts based on the provided parameters.
+
+### Function Definitions
+
+
+### Usage
+To use the CollectiveFactory contract, developers need to deploy it first, passing the IEntryPoint contract address as a constructor argument. After deployment, developers can interact with the contract's functions to create and manage Collective and CWallet contracts.
+<br>
+Here's an example of how to create a Collective and CWallet contract using the CollectiveFactory:
+
+```// Import the necessary contracts and interfaces
+import "./CollectiveFactory.sol";
+
+// Deploy the CollectiveFactory contract
+CollectiveFactory collectiveFactory = new CollectiveFactory(entryPoint);
+
+// Set the parameters for creating a Collective and CWallet
+address initiator = ...; // Address of the initiator account
+address operator = ...; // Address of the operator account, this is the person setting up the collective
+uint256 salt = ...; // A unique salt value
+
+// Create the Collective contract
+collectiveFactory.createCollective(initiator, operator, salt);
+
+// Get the address of the created Collective contract
+address collectiveAddress = collectiveFactory.getCollective(initiator, operator, salt);
+
+// Create the CWallet contract
+address cWalletAddress = collectiveFactory.createWallet(initiator, operator, salt);```
 
 ## Collective Contract
 This contract is the main entry point for the Collective. It implements core collective functionalities and also includes a minimal AA (Account Abstraction) account.
 
-### Function Specifications
+### Function Definitions
 ```initialize(address theInitiator, address theOperator, address theFactory)```
 Initializes the contract with the following parameters:
 

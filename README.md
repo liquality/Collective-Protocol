@@ -68,6 +68,7 @@ Influencer / follower pools
 
 ### group affiliate programs
 
+<br></br>
 
 ## Experimentations
 
@@ -83,7 +84,6 @@ Here’s how it works:
 2. They cast their mint frame far and wide 
 3. Revenue generated from mints is split 50/50 between the caster and the community’s treasury 
 Read more about Meme amplifier <a href="meme-amplifier-machine.liquality.io" target="_blank" > here </a>
-
 
 
 <br></br>
@@ -126,21 +126,42 @@ Read more about Meme amplifier <a href="meme-amplifier-machine.liquality.io" tar
   }
   ```
 
+<br></br>
 
 # Contract Specification
 
-# Collective Factory
+The main implementation of the Collective protocol, includes the following contracts, as found in the core folder, under contracts :
+
+#### Collective Contract: 
+This contract is the main entry point for the Collective. It implements core collective functionalities and also includes a minimal AA (Account Abstraction) account.
+
+#### CWallet Contract: 
+The CWallet contract is an advanced wallet implementation with features such as single signer operations, support for account abstraction, whitelisted target addresses, and reward handling. It integrates with the Collective and EntryPoint contracts to provide flexible and secure wallet operations, and it is the gateway to external contract / protocol interaction for the collective, this is how the collective maintains a single identity.
+
+#### HoneyPot: 
+The HoneyPot contract is an upgradeable contract designed to handle reward distribution for any reward mechanism the collective chooses to run. It includes mechanisms for setting the top contributor / reward winner, receiving rewards, and sending rewards to the top contributor. The contract utilizes OpenZeppelin's upgradeable and security libraries to ensure safe and efficient operations.
+
+#### Pool: 
+The Pool smart contract is designed to manage contributions, rewards distribution, and fund withdrawals for a collective. The contract includes functionality for recording contributions, distributing rewards based on contributions, and managing the pool's state. It utilizes OpenZeppelin's Pausable and ReentrancyGuard for added security and flexibility.
+
+#### And the main entry points for usage of the Collective protocol are as listed below :
+
+- CollectiveFactory
+- EscrowFactory
+- HoneyPotFactory
+
+These contracts are where to get started, if you're lookign to get started with the Collective Protocol
+
+## Collective Factory
 The CollectiveFactory contract is responsible for creating and deploying Collective and CWallet (Collective Wallet) contracts using the ERC1967 proxy pattern and the Create2 openzeppelin library. It provides functions to create and calculate the addresses of Collective and CWallet contracts based on the provided parameters.
 
-### Function Definitions
-
-
 ### Usage
-To use the CollectiveFactory contract, developers need to deploy it first, passing the IEntryPoint contract address as a constructor argument. After deployment, developers can interact with the contract's functions to create and manage Collective and CWallet contracts.
-<br>
+To use the CollectiveFactory contract, you need to deploy it first, passing the IEntryPoint contract address as a constructor argument. After deployment, developers can interact with the contract's functions to create and manage Collective and CWallet contracts.
+
 Here's an example of how to create a Collective and CWallet contract using the CollectiveFactory:
 
-```// Import the necessary contracts and interfaces
+```
+Import the necessary contracts and interfaces
 import "./CollectiveFactory.sol";
 
 // Deploy the CollectiveFactory contract
@@ -158,66 +179,94 @@ collectiveFactory.createCollective(initiator, operator, salt);
 address collectiveAddress = collectiveFactory.getCollective(initiator, operator, salt);
 
 // Create the CWallet contract
-address cWalletAddress = collectiveFactory.createWallet(initiator, operator, salt);```
+address cWalletAddress = collectiveFactory.createWallet(initiator, operator, salt);
+```
 
-## Collective Contract
-This contract is the main entry point for the Collective. It implements core collective functionalities and also includes a minimal AA (Account Abstraction) account.
+## EscrowFactory
+This is the main factory contract that manages the deployment and upgrade of `HoneyPot` escrow contracts using Transparent Proxies.The HoneyPot contract represents the escrow logic. It needs to be initialized with the owner contract address and the factory owner address.
 
-### Function Definitions
-```initialize(address theInitiator, address theOperator, address theFactory)```
-Initializes the contract with the following parameters:
+### Usage
+```
+const { ethers, upgrades } = require("hardhat");
 
-```theInitiator```: The address of the initiator (creator) of the Collective.
-```theOperator```: The address of the operator (manager) of the Collective.
-```theFactory```: The address of the factory contract that created this Collective.
+async function main() {
+  // Deploy EscrowFactory
+  const EscrowFactory = await ethers.getContractFactory("EscrowFactory");
+  const escrowFactory = await upgrades.deployProxy(EscrowFactory, [], { initializer: "initialize" });
+  await escrowFactory.deployed();
+  console.log("EscrowFactory deployed to:", escrowFactory.address);
 
-This function sets the initial values for operator, initiator, collectiveFactory, and adds the initiator as the first member of the Collective.
+  // Create an escrow by sending funds
+  const [deployer] = await ethers.getSigners();
+  const tx = await deployer.sendTransaction({
+    to: escrowFactory.address,
+    value: ethers.utils.parseEther("1.0"), // Amount to send
+  });
+  await tx.wait();
+  console.log("Funds sent and escrow created.");
 
-```setWallet(address theWallet)```
-Sets the address of the Collective's wallet (cWallet) to the provided theWallet address. This function can only be called by the collectiveFactory contract.
+  // Retrieve escrow address
+  const escrowAddress = await escrowFactory.getEscrow(deployer.address);
+  console.log("Escrow Address:", escrowAddress);
 
-```joinCollective(bytes calldata _inviteSig, bytes16 _inviteId)```
-Allows a new member to join the Collective by providing a valid invitation signature (_inviteSig) and invitation ID (_inviteId). The function verifies the signature and the signer's membership before adding the new member to the Collective.
+  // Deploy new implementation
+  const NewHoneyPot = await ethers.getContractFactory("NewHoneyPot");
+  const newImplementation = await NewHoneyPot.deploy();
+  await newImplementation.deployed();
+  console.log("New implementation deployed to:", newImplementation.address);
 
-```leaveCollective()```
-Allows a member to leave the Collective by removing their membership.
+  // Upgrade escrow to new implementation
+  const data = newImplementation.interface.encodeFunctionData("initialize", [deployer.address, deployer.address]);
+  await escrowFactory.upgradeEscrowFor(deployer.address, newImplementation.address, data);
+  console.log("Escrow upgraded to new implementation.");
+}
 
-```removeMember(address _member)```
-Allows the initiator to remove a member from the Collective.
+main()
+  .then(() => process.exit(0))
+  .catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });
 
-```createPools(address[] calldata _tokenContracts, address[] calldata _honeyPots)```
-Allows a member to create new pools by providing an array of token contract addresses (_tokenContracts) and an array of corresponding "honeyPot" addresses (_honeyPots). The function deploys a new Pool contract for each pair of token contract and honeyPot address, and whitelists the necessary addresses in the Collective's wallet.
+```
 
-```recordPoolMint(address _pool, address _participant, uint256 _tokenID, uint256 _quantity, uint256 _amountPaid)```
-Records a mint event in the specified _pool for the given _participant, _tokenID, _quantity, and _amountPaid. This function can only be called by the Collective's wallet (cWallet).
+Replace <EscrowFactory_Address> with the actual deployed address of your EscrowFactory contract.
 
-```receivePoolReward(address _honeyPot)```
-Receives a reward for the pool associated with the provided _honeyPot address. The function forwards the received ETH to the corresponding pool contract and emits a RewardForwarded event.
+## HoneyPotFactory
+The EscrowFactory contract is designed to create and manage escrow contracts. This factory contract uses upgradeable proxies to ensure that the escrow contracts can be upgraded in the future without losing state. This section provides an overview of the contract's functionality, structure, and how to interact with it.
 
-```renounceOperator()```
-Allows the current operator to renounce their role as the operator of the Collective.
+### Usage
+```
+const { ethers } = require("hardhat");
 
-```whitelistTargets(address[] calldata _targets)```
-Allows the operator to whitelist an array of target addresses in the Collective's wallet.
+async function main() {
+  // Deploy HoneyPotFactory
+  const HoneyPotFactory = await ethers.getContractFactory("HoneyPotFactory");
+  const honeyPotFactory = await HoneyPotFactory.deploy();
+  await honeyPotFactory.deployed();
+  console.log("HoneyPotFactory deployed to:", honeyPotFactory.address);
 
-```blacklistTargets(address[] calldata _targets)```
-Allows the operator to blacklist an array of target addresses in the Collective's wallet.
-Internal Functions
+  // Define operator and salt
+  const operator = "0xYourOperatorAddress";
+  const salt = ethers.utils.id("unique_salt_value");  // Use a unique salt value
 
-```_requireFromMembers(address caller)```: 
-Internal function to check if the caller is a member of the Collective.
+  // Create HoneyPot
+  const tx = await honeyPotFactory.createHoneyPot(operator, salt);
+  await tx.wait();
+  console.log("HoneyPot created.");
 
-```_requireFromInitiator()```: 
-Internal function to check if the caller is the initiator of the Collective.
+  // Retrieve HoneyPot address
+  const honeyPotAddress = await honeyPotFactory.getHoneyPot(operator, salt);
+  console.log("HoneyPot Address:", honeyPotAddress);
+}
 
-```_requireFromAuthorizedOperator()```: 
-Internal function to check if the caller is the authorized operator of the Collective.
+main()
+  .then(() => process.exit(0))
+  .catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });
 
-```getCaller(): ```
-Internal function to retrieve the actual caller address, handling the case where the call is made through the Collective's wallet (cWallet).
+```
 
-```recoverSigner(bytes calldata _inviteSig, bytes16 _inviteId)```
-Internal function to recover the signer address from the provided invitation signature (_inviteSig) and invitation ID (_inviteId).
-
-
-## Collective Wallet
+Replace <HoneyPotFactory_Address> and <operator_address> with the actual deployed address of your HoneyPotFactory contract and the operator address respectively. Use a unique salt value for each HoneyPot you create.

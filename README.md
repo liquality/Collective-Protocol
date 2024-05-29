@@ -69,8 +69,6 @@ Influencer / follower pools
 ### group affiliate programs
 
 
-<br></br>
-
 ## Experimentations
 
 ### Clash of Channels
@@ -86,12 +84,86 @@ Here’s how it works:
 3. Revenue generated from mints is split 50/50 between the caster and the community’s treasury 
 Read more about Meme amplifier <a href="meme-amplifier-machine.liquality.io" target="_blank" > here </a>
 
+
+
+<br></br>
+
+## Deployed Addresses:
+```
+  GOERLI {
+      collectiveFactory: '0xdA23889B4D12dE56b5C1E118Ae63F099b03a9086',
+      honeyPotFactory: '0xce3795B42857bE44cF8a384c8b50246FB7CaC691',
+    
+  },
+  POLYGON {
+      collectiveFactory: '0x9E4440EDFc8AebB30A5501F7a55EDe296BC2fb38',
+      honeyPotFactory: '0xF99E8F24BAD50CE6b0098205adcD6cD01e66AC4F',
+    
+  },
+  ARBITRUM {
+    collectiveFactory: '0xCfC03cA81380338703860238d0d6caD552232877',
+    honeyPotFactory: '0xc2b5189c3D5be89147780591A92a374c7d69D3D3',
+   
+  },
+  BASE {
+    collectiveFactory: '0xc2b5189c3D5be89147780591A92a374c7d69D3D3',
+    honeyPotFactory: '0x6fF619e8856F737d58cAf03871Cb3637C6Ed3308',
+   
+  },
+  OPTIMISM {
+    collectiveFactory: '0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789',
+    honeyPotFactory: '0x00F58322E0c66BFFb613DbC2D38b5275A0Fc7d2f',
+   
+  },
+  ZORA {
+    collectiveFactory: '0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789',
+    honeyPotFactory: '0x00F58322E0c66BFFb613DbC2D38b5275A0Fc7d2f',
+   
+  },
+  SEPOLIA {
+    collectiveFactory: '0x6f8892FBeAc884Bd3674Eeeafc7A059B70A75430',
+    honeyPotFactory: '0x00F58322E0c66BFFb613DbC2D38b5275A0Fc7d2f',
+  }
+  ```
+
+
 # Contract Specification
+
+# Collective Factory
+The CollectiveFactory contract is responsible for creating and deploying Collective and CWallet (Collective Wallet) contracts using the ERC1967 proxy pattern and the Create2 openzeppelin library. It provides functions to create and calculate the addresses of Collective and CWallet contracts based on the provided parameters.
+
+### Function Definitions
+
+
+### Usage
+To use the CollectiveFactory contract, developers need to deploy it first, passing the IEntryPoint contract address as a constructor argument. After deployment, developers can interact with the contract's functions to create and manage Collective and CWallet contracts.
+<br>
+Here's an example of how to create a Collective and CWallet contract using the CollectiveFactory:
+
+```// Import the necessary contracts and interfaces
+import "./CollectiveFactory.sol";
+
+// Deploy the CollectiveFactory contract
+CollectiveFactory collectiveFactory = new CollectiveFactory(entryPoint);
+
+// Set the parameters for creating a Collective and CWallet
+address initiator = ...; // Address of the initiator account
+address operator = ...; // Address of the operator account, this is the person setting up the collective
+uint256 salt = ...; // A unique salt value
+
+// Create the Collective contract
+collectiveFactory.createCollective(initiator, operator, salt);
+
+// Get the address of the created Collective contract
+address collectiveAddress = collectiveFactory.getCollective(initiator, operator, salt);
+
+// Create the CWallet contract
+address cWalletAddress = collectiveFactory.createWallet(initiator, operator, salt);```
 
 ## Collective Contract
 This contract is the main entry point for the Collective. It implements core collective functionalities and also includes a minimal AA (Account Abstraction) account.
 
-### Function Specifications
+### Function Definitions
 ```initialize(address theInitiator, address theOperator, address theFactory)```
 Initializes the contract with the following parameters:
 
